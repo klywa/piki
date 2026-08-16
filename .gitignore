@@ -1,0 +1,4 @@
+personal
+scripts/node_modules/
+scripts/package-lock.json
+.build-cache/

@@ -1,0 +1,97 @@
+{
+  "_note": "手工维护的中文俗称/缩写表。自动索引已覆盖正式中文名、日文名、英文名，并支持前缀/子串/模糊匹配，所以这里只收『正式名里不含的叫法』。发现 piki 认不出某个常用叫法时，在对应分类下加一行 \"俗称\": \"showdown_id\" 即可，无需改代码。",
+
+  "species": {
+    "洗衣机": "rotomwash",
+    "电风扇": "rotomfan",
+    "微波炉": "rotomheat",
+    "冰箱": "rotomfrost",
+    "除草机": "rotommow",
+    "沙奈": "gardevoir",
+    "谜拟q": "mimikyu",
+    "超喷x": "charizardmegax",
+    "超喷y": "charizardmegay",
+    "白马": "calyrexice",
+    "黑马": "calyrexshadow",
+    "铁手": "ironhands",
+    "妈妈": "kangaskhan",
+    "三首龙": "hydreigon",
+    "龙头": "hydreigon",
+    "钢鸟": "skarmory",
+    "冰伊布": "glaceon",
+    "叶伊布": "leafeon",
+    "仙子伊布": "sylveon",
+    "水伊布": "vaporeon",
+    "雷伊布": "jolteon",
+    "火伊布": "flareon",
+    "太阳伊布": "espeon",
+    "月亮伊布": "umbreon"
+  },
+
+  "moves": {
+    "保护": "protect",
+    "守护": "protect",
+    "假动作": "fakeout",
+    "击掌": "fakeout",
+    "空间": "trickroom",
+    "龙舞": "dragondance",
+    "蝶舞": "quiverdance",
+    "剑之舞": "swordsdance",
+    "神鸟": "bravebird",
+    "近身": "closecombat",
+    "大字": "fireblast",
+    "十万": "thunderbolt",
+    "冷冻光线": "icebeam",
+    "蜻蜓": "uturn",
+    "伏特": "voltswitch",
+    "折返": "flipturn",
+    "羽栖": "roost",
+    "隐形岩": "stealthrock",
+    "撒菱": "spikes",
+    "毒菱": "toxicspikes",
+    "黏黏网": "stickyweb",
+    "看我嘛": "followme",
+    "愤怒粉": "ragepowder",
+    "冰冻之风": "icywind",
+    "电网": "electroweb",
+    "抛下狠话": "partingshot",
+    "打落": "knockoff",
+
+    "血月": "bloodmoon",
+    "棘藤棒": "ivycudgel",
+    "糖浆炸弹": "syrupbomb"
+  },
+
+  "_zh_names_note": "显示名覆盖：PokeAPI 缺中文名、或它给的名字你觉得不对时，在这里按 id 指定，pokedb/calc 的输出会直接采用。改这里即可，不用重建数据库。Matcha Gotcha(シャカシャカほう) 译名我不确定，故意留空——宁可显示英文，也不编一个错的。",
+  "zh_names": {
+    "moves": {
+      "bloodmoon": "血月",
+      "ivycudgel": "棘藤棒",
+      "syrupbomb": "糖浆炸弹"
+    },
+    "species": {},
+    "abilities": {},
+    "items": {}
+  },
+
+  "abilities": {
+    "悬浮": "levitate",
+    "再生": "regenerator",
+    "拟态": "imposter"
+  },
+
+  "items": {
+    "围巾": "choicescarf",
+    "眼镜": "choicespecs",
+    "头带": "choiceband",
+    "披带": "focussash",
+    "宝珠": "lifeorb",
+    "背心": "assaultvest",
+    "av": "assaultvest",
+    "剩饭": "leftovers",
+    "辉石": "eviolite",
+    "气球": "airballoon",
+    "红牌": "redcard",
+    "逃脱按键": "ejectbutton"
+  }
+}

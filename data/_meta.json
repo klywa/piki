@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-08-15",
+  "sources": {
+    "showdown": "https://play.pokemonshowdown.com/data",
+    "pokeapi": "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv"
+  },
+  "counts": {
+    "species": 1480,
+    "moves": 954,
+    "abilities": 320,
+    "items": 583,
+    "types": 20
+  },
+  "zh_coverage": {
+    "species": "1377/1480 (93.0%)",
+    "moves": "897/954 (94.0%)",
+    "abilities": "308/320 (96.3%)",
+    "items": "508/583 (87.1%)",
+    "types": "20/20 (100.0%)"
+  },
+  "note": "本库为主系列（Showdown）数据。Champions 的规则差异见 champions-rules.json；本库查不到的条目应走 web 源，不要用近似值顶替。"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "piki-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "piki skill 的本地对战数据查询与伤害计算工具",
+  "dependencies": {
+    "@smogon/calc": "0.11.0"
+  }
+}
