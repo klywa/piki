@@ -22,7 +22,10 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { resolve, disp, fmtCandidates } from './lib/data.mjs';
-import { getFormat, calcStat, maxInvest, ruleBanner, STAT_ORDER } from './lib/rules.mjs';
+import {
+  getFormat, calcStat, maxInvest, ruleBanner, STAT_ORDER,
+  buildSpread, natureTag,   // 配置模型（预设/性格/上限校验）统一住在 rules.mjs，与 pokedb.mjs stats 共用
+} from './lib/rules.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,96 +70,6 @@ const argv = process.argv.slice(2);
 const getArg = f => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : null; };
 const WANT_DESC = argv.includes('--desc');
 const WANT_STATS = argv.includes('--stats');   // 打印每个 set 的最终面板，便于人工核对
-
-// ------------------------------------------------------------ 配置预设
-
-/**
- * 努力值/能力点预设。
- *
- * 之所以要预设：实战里对手的配置几乎永远未知，逐条手填既慢又是假精确。
- * 具名预设让每条计算的假设一眼可见，也让「未知」被显式表达出来。
- *
- * 'max' 会按格式展开——主系列是 252，Champions 是单项上限 32。
- * 这样 champions-rules.json 改了上限，预设自动跟着走。
- */
-const PRESETS = {
-  '物攻满':   { ev: { atk: 'max', spe: 'max' }, up: 'atk', down: 'spa' },
-  '物攻速攻': { ev: { atk: 'max', spe: 'max' }, up: 'spe', down: 'spa' },
-  '特攻满':   { ev: { spa: 'max', spe: 'max' }, up: 'spa', down: 'atk' },
-  '特攻速攻': { ev: { spa: 'max', spe: 'max' }, up: 'spe', down: 'atk' },
-  '物耐满':   { ev: { hp: 'max', def: 'max' }, up: 'def', down: 'spa' },
-  '特耐满':   { ev: { hp: 'max', spd: 'max' }, up: 'spd', down: 'atk' },
-  '满速':     { ev: { spe: 'max' }, up: 'spe', down: 'spa' },
-  '无投入':   { ev: {}, up: null, down: null },
-};
-const PRESET_ALIAS = {
-  'offense-phys': '物攻满', 'fast-phys': '物攻速攻',
-  'offense-spec': '特攻满', 'fast-spec': '特攻速攻',
-  'bulky-phys': '物耐满', 'bulky-spec': '特耐满',
-  'frail': '无投入', 'none': '无投入', '0': '无投入',
-  '满耐久': '物耐满', '满物耐': '物耐满', '满特耐': '特耐满',
-  '满攻': '物攻满', '满特攻': '特攻满', '裸': '无投入',
-};
-
-/** 性格名查表：up/down → Showdown 性格英文名。 */
-const NATURE = {
-  atk: { spa: 'Adamant', def: 'Lonely', spd: 'Naughty', spe: 'Brave' },
-  spa: { atk: 'Modest', def: 'Mild', spd: 'Rash', spe: 'Quiet' },
-  spe: { atk: 'Timid', spa: 'Jolly', def: 'Hasty', spd: 'Naive' },
-  def: { atk: 'Bold', spa: 'Impish', spd: 'Lax', spe: 'Relaxed' },
-  spd: { atk: 'Calm', spa: 'Careful', def: 'Gentle', spe: 'Sassy' },
-};
-
-const presetName = n => {
-  if (!n) return null;
-  const s = String(n);
-  return PRESETS[s] ? s : (PRESET_ALIAS[s.toLowerCase()] || PRESET_ALIAS[s] || null);
-};
-
-/**
- * 把预设或显式投入展开成 {evs, natureName, natureMods, tags}。
- * natureMods 是给我们自己的 calcStat 用的（Champions 路径）；
- * natureName 是给 @smogon/calc 用的（主系列路径）。
- */
-function buildSpread(fmt, spec) {
-  const tags = [];
-  const cap = maxInvest(fmt);
-  let evs = {}, up = null, down = null;
-
-  if (spec.evs) {
-    evs = { ...spec.evs };
-    if (spec.nature) {
-      // 允许直接写英文性格名
-      for (const [u, row] of Object.entries(NATURE)) {
-        for (const [d, name] of Object.entries(row)) {
-          if (name.toLowerCase() === String(spec.nature).toLowerCase()) { up = u; down = d; }
-        }
-      }
-    }
-  } else {
-    const key = presetName(spec.spread) || '无投入';
-    const p = PRESETS[key];
-    for (const [s, v] of Object.entries(p.ev)) evs[s] = v === 'max' ? cap : v;
-    up = p.up; down = p.down;
-    tags.push(key);
-  }
-
-  // 总量校验：超了就明说，不静默截断
-  const total = Object.values(evs).reduce((a, b) => a + (Number(b) || 0), 0);
-  const limit = fmt.ev.system === 'classic' ? fmt.ev.total : fmt.ev.total;
-  if (total > limit) tags.push(`~超出总量上限(${total}/${limit})`);
-  for (const [s, v] of Object.entries(evs)) {
-    if (v > cap) tags.push(`~${s}超出单项上限(${v}/${cap})`);
-  }
-
-  const natureName = fmt.nature.enabled && up && down ? (NATURE[up]?.[down] || 'Serious') : 'Serious';
-  const natureMods = {};
-  if (fmt.nature.enabled && up && down) {
-    natureMods[up] = fmt.nature.up;
-    natureMods[down] = fmt.nature.down;
-  }
-  return { evs, natureName, natureMods, tags };
-}
 
 // ------------------------------------------------------------ 建立宝可梦
 
@@ -302,7 +215,7 @@ function makePokemon(calcLib, gen, fmt, key, spec, errs, warns) {
   if (item) tags.unshift(disp(resolve('items', item).rec || { name: item }));
 
   const st = p.rawStats;
-  const statLine = `STATS ${key} ${disp(rec)} 性格${spread.natureName} HP${st.hp} 攻${st.atk} 防${st.def} 特攻${st.spa} 特防${st.spd} 速${st.spe}`;
+  const statLine = `STATS ${key} ${disp(rec)}|性格${natureTag(spread.up, spread.down)}|HP${st.hp} 攻${st.atk} 防${st.def} 特攻${st.spa} 特防${st.spd} 速${st.spe}`;
 
   return { p, rec, label: disp(rec), tags: [...tags, ...boostTags], statLine };
 }

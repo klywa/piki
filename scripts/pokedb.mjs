@@ -14,7 +14,10 @@
 import {
   DB, resolve, resolveAll, zhType, zhTypes, zhAbility, disp, fmtCandidates,
 } from './lib/data.mjs';
-import { getFormat, calcStat, maxInvest } from './lib/rules.mjs';
+import {
+  getFormat, calcStat, calcAllStats, maxInvest, buildSpread, statsEnvelope,
+  natureTag, STAT_ORDER, STAT_ZH,
+} from './lib/rules.mjs';
 
 const argv = process.argv.slice(2);
 const cmd = argv.shift();
@@ -213,6 +216,90 @@ function cmdType() {
   }
 }
 
+/**
+ * 面板实数值——「种族值 + 性格 + 投入」算完之后的六项。
+ *
+ * 为什么要有这个命令：速度线、耐久线、确定数全都建立在实数面板上，
+ * 而面板此前只能从 calc.mjs --stats 顺带拿到——写一份阵容笔记根本不需要跑伤害，
+ * 却被迫构造一份伤害计算 JSON。没有这个出口，上层就只能心算，而心算正是铁律禁止的。
+ *
+ * 公式一律走 lib/rules.mjs 的 calcStat/calcAllStats，本函数不自己算任何数。
+ */
+function cmdStats() {
+  const fmt = getFormat(flags.format);
+  if (!fmt) { say(`NOTFOUND 未知格式 ${flags.format}`); return; }
+  const level = Number(flags.level) || fmt.level;
+  const cap = maxInvest(fmt);
+  const unit = fmt.ev.system === 'classic' ? '努力值' : (fmt.ev.unit || '能力点');
+
+  // --evs 的键接受 hp/atk/... 与中文写法；值写 `spa=32` 或 `特攻32` 都行
+  const EV_KEY = {
+    hp: 'hp', atk: 'atk', def: 'def', spa: 'spa', spd: 'spd', spe: 'spe',
+    HP: 'hp', 血: 'hp', 体力: 'hp',
+    攻: 'atk', 攻击: 'atk', 物攻: 'atk',
+    防: 'def', 防御: 'def', 物防: 'def',
+    特攻: 'spa', 特防: 'spd',
+    速: 'spe', 速度: 'spe',
+  };
+  let evs = null, badEv = null;
+  if (flags.evs && flags.evs !== true) {
+    evs = {};
+    for (const part of String(flags.evs).split(/[,，\s]+/).filter(Boolean)) {
+      const m = part.match(/^([^=:0-9]+)[=:]?(\d+)$/);
+      const key = m && EV_KEY[m[1]];
+      if (!key) { badEv = part; break; }
+      evs[key] = Number(m[2]);
+    }
+  }
+  if (badEv) {
+    say(`ERROR 无法解析 --evs 片段「${badEv}」——写法：hp=32,spe=32 或 特攻32,速32`);
+    return;
+  }
+
+  // 三者全无 = 配置未知，走逐项包络；否则按显式配置算确定值
+  const known = !!(evs || flags.spread || flags.nature);
+  const spread = known
+    ? buildSpread(fmt, evs
+        ? { evs, nature: flags.nature }
+        : { spread: flags.spread, nature: flags.nature })
+    : null;
+
+  const rows = [];
+  for (const r of resolveAll('species', words)) {
+    if (!r.ok) { reportFail(r); continue; }
+    rows.push(r.rec);
+  }
+  if (!rows.length) return;
+
+  const evBits = fmt.ev.system === 'classic'
+    ? `${fmt.ev.total}${unit}/单项上限${fmt.ev.perStatMax}`
+    : `${fmt.ev.total}${unit}/单项上限${cap}(1点=+1面板)`;
+  say(`STATS lv${level} ${fmt.label}｜${evBits}｜iv=${fmt.iv.fixed != null ? `固定${fmt.iv.fixed}` : '按31'} 性格=${fmt.nature.enabled ? '有' : '无'}`);
+
+  for (const s of rows) {
+    const head = `${disp(s)}|${s.name}`;
+    if (spread) {
+      const st = calcAllStats(fmt, s.bs, { evs: spread.evs, natureMods: spread.natureMods, level });
+      const inv = STAT_ORDER.filter(k => spread.evs[k])
+        .map(k => `${STAT_ZH[k]}${spread.evs[k]}`).join('/') || '无投入';
+      const warn = spread.tags.filter(t => t.startsWith('~')).map(t => ` ${t}`).join('');
+      say(`STATS ${head}|性格${natureTag(spread.up, spread.down)}|投入 ${inv}(${spread.total}/${fmt.ev.total})|` +
+          STAT_ORDER.map(k => `${STAT_ZH[k]}${st[k]}`).join(' ') + warn);
+    } else {
+      const env = statsEnvelope(fmt, s.bs, level);
+      say(`STATS ${head}|~配置未知|` +
+          STAT_ORDER.map(k => `${STAT_ZH[k]}${env[k].lo}~${env[k].hi}`).join(' '));
+    }
+  }
+
+  if (!spread) {
+    say(`    ~逐项给「0投入+降性格 ~ ${cap}投入+加性格」的上下界。` +
+        `六项不可能同时取上界——总共只有 ${fmt.ev.total}${unit}，别把上界读成某个真实配置`);
+  } else if (spread.total < fmt.ev.total) {
+    say(`    剩余 ${fmt.ev.total - spread.total}${unit} 未分配`);
+  }
+}
+
 function cmdSpeed() {
   const fmt = getFormat(flags.format);
   if (!fmt) { say(`NOTFOUND 未知格式 ${flags.format}`); return; }
@@ -315,6 +402,9 @@ const HELP = `pokedb.mjs —— piki 离线查询（名称支持 中/日/英/俗
   ability <名...>
   item    <名...>
   type    <属性|属性1/属性2> [--atk] [--def] [--ability <特性>]
+  stats   <名...>  [--format champs|sv] [--level 50]
+                   [--nature 胆小] [--evs 特攻32,速32] [--spread 特攻速攻]
+                   三者全不给 = 配置未知，逐项输出上下界
   speed   <名...>  [--format champs] [--level 50] [--mods 围巾,顺风,+1,麻痹]
   can     <宝可梦> <招式...>
   search  <关键词> [--kind mon|move|ability|item] [--n 10]
@@ -325,7 +415,7 @@ const HELP = `pokedb.mjs —— piki 离线查询（名称支持 中/日/英/俗
 
 const TABLE = {
   mon: cmdMon, move: cmdMove, ability: cmdAbility, item: cmdItem,
-  type: cmdType, speed: cmdSpeed, can: cmdCan, search: cmdSearch,
+  type: cmdType, stats: cmdStats, speed: cmdSpeed, can: cmdCan, search: cmdSearch,
 };
 
 try {
